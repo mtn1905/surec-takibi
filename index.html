@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Servis Mühendisliği Süreç Takip</title>
+    <title>Servis Mühendisliği Süreç Takibi</title>
     <style>
         * {
             margin: 0;
@@ -286,7 +286,6 @@
             white-space: nowrap;
         }
 
-        /* ── STATUS RENKLERI ── */
         .status-notstarted { background:#1a1f2e; color:#475569; border:1px solid #334155; }
         .status-pending    { background:#2d1b00; color:#fb923c; border:1px solid #9a3412; }
         .status-inprogress { background:#1e2d00; color:#a3e635; border:1px solid #4d7c0f; }
@@ -294,14 +293,11 @@
         .status-blocked    { background:#2d0d0d; color:#f87171; border:1px solid #991b1b; }
         .status-na         { background:#1e1b2e; color:#a78bfa; border:1px solid #5b21b6; }
 
-        /* ── MINI BAR DOLGU RENKLERİ ── */
         .fill-notstarted { background: #334155; }
         .fill-pending    { background: linear-gradient(90deg, #c2410c, #fb923c); }
         .fill-inprogress { background: linear-gradient(90deg, #65a30d, #a3e635); }
         .fill-done       { background: linear-gradient(90deg, #16a34a, #4ade80); }
         .fill-blocked    { background: linear-gradient(90deg, #991b1b, #f87171); }
-
-        /* N/A için özel çizgili bar */
         .fill-na {
             background: repeating-linear-gradient(
                 90deg,
@@ -333,7 +329,6 @@
             color: #64748b;
         }
 
-        /* ── TOOLTIP ── */
         .has-note {
             position: relative;
         }
@@ -355,6 +350,28 @@
             pointer-events: none;
         }
 
+        .reset-btn {
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .reset-btn button {
+            background: #1e293b;
+            color: #f87171;
+            border: 1px solid #991b1b;
+            padding: 7px 18px;
+            border-radius: 8px;
+            font-size: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .reset-btn button:hover {
+            background: #2d0d0d;
+        }
+
         @media (max-width: 600px) {
             h1 { font-size: 16px; }
             .overall-card { flex-direction: column; align-items: flex-start; }
@@ -363,13 +380,11 @@
 </head>
 <body>
 
-    <!-- HEADER -->
     <div class="header">
         <div class="ford-logo">FORD</div>
         <h1>Custom 9+1 <span>Servis Mühendisliği</span> Süreç Takibi</h1>
     </div>
 
-    <!-- LEGEND -->
     <div class="legend">
         <div class="legend-item">
             <div class="legend-dot" style="background:#475569"></div> Başlanmadı
@@ -394,7 +409,6 @@
         </div>
     </div>
 
-    <!-- OVERALL PROGRESS -->
     <div class="overall-card">
         <div class="overall-label">
             <strong id="overallPct">0%</strong>
@@ -409,7 +423,10 @@
         </div>
     </div>
 
-    <!-- TABLE -->
+    <div class="reset-btn">
+        <button onclick="resetAll()">🔄 Tüm Verileri Sıfırla</button>
+    </div>
+
     <div class="table-container">
         <table id="mainTable">
             <thead>
@@ -482,25 +499,17 @@
     </div>
 
     <script>
-        /* ══════════════════════════════════════
-           DURUM TANIMLARI
-           N/A: pct = null → progress hesabına dahil edilmez
-        ══════════════════════════════════════ */
+        const STORAGE_KEY = 'surec_takibi_v1';
+
         const STATUSES = [
-            { key: 'notstarted', label: 'Başlanmadı',    icon: '○',  pct: 0,    cls: 'status-notstarted', fill: 'fill-notstarted' },
-            { key: 'pending',    label: 'Beklemede',     icon: '⏳', pct: 25,   cls: 'status-pending',    fill: 'fill-pending'    },
-            { key: 'inprogress', label: 'Devam Ediyor',  icon: '🔄', pct: 60,   cls: 'status-inprogress', fill: 'fill-inprogress' },
-            { key: 'done',       label: 'Tamamlandı',    icon: '✓',  pct: 100,  cls: 'status-done',       fill: 'fill-done'       },
-            { key: 'blocked',    label: 'Engel Var',     icon: '⚠',  pct: 0,    cls: 'status-blocked',    fill: 'fill-blocked'    },
-            { key: 'na',         label: 'N/A',           icon: '—',  pct: null, cls: 'status-na',         fill: 'fill-na'         },
+            { key: 'notstarted', label: 'Başlanmadı',   icon: '○',  pct: 0,    cls: 'status-notstarted', fill: 'fill-notstarted' },
+            { key: 'pending',    label: 'Beklemede',    icon: '⏳', pct: 25,   cls: 'status-pending',    fill: 'fill-pending'    },
+            { key: 'inprogress', label: 'Devam Ediyor', icon: '🔄', pct: 60,   cls: 'status-inprogress', fill: 'fill-inprogress' },
+            { key: 'done',       label: 'Tamamlandı',   icon: '✓',  pct: 100,  cls: 'status-done',       fill: 'fill-done'       },
+            { key: 'blocked',    label: 'Engel Var',    icon: '⚠',  pct: 0,    cls: 'status-blocked',    fill: 'fill-blocked'    },
+            { key: 'na',         label: 'N/A',          icon: '—',  pct: null, cls: 'status-na',         fill: 'fill-na'         },
         ];
 
-        /* ══════════════════════════════════════
-           SATIR VERİLERİ
-           cells: her sütun için STATUSES index'i
-           0=Başlanmadı, 1=Beklemede, 2=DevamEdiyor,
-           3=Tamamlandı, 4=EngelVar, 5=N/A
-        ══════════════════════════════════════ */
         const ROWS = [
             {
                 label : 'Sök / Tak Talimatları',
@@ -534,15 +543,30 @@
             },
         ];
 
-        /* ══════════════════════════════════════
-           TABLO OLUŞTURMA
-        ══════════════════════════════════════ */
+        function saveToStorage(rowIdx, colIdx, statusIdx) {
+            let data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            if (!data[rowIdx]) data[rowIdx] = {};
+            data[rowIdx][colIdx] = statusIdx;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        }
+
+        function loadFromStorage() {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        }
+
+        function resetAll() {
+            if (confirm('Tüm veriler sıfırlanacak. Emin misiniz?')) {
+                localStorage.removeItem(STORAGE_KEY);
+                location.reload();
+            }
+        }
+
+        const savedData = loadFromStorage();
         const tbody = document.getElementById('tableBody');
 
         ROWS.forEach((row, rowIdx) => {
             const tr = document.createElement('tr');
 
-            // Satır başlığı
             const tdLabel = document.createElement('td');
             tdLabel.innerHTML = `
                 <div class="row-label">
@@ -556,8 +580,11 @@
                 </div>`;
             tr.appendChild(tdLabel);
 
-            // Veri hücreleri
-            row.cells.forEach((statusIdx, colIdx) => {
+            row.cells.forEach((defaultStatus, colIdx) => {
+                const statusIdx = (savedData[rowIdx] && savedData[rowIdx][colIdx] !== undefined)
+                    ? savedData[rowIdx][colIdx]
+                    : defaultStatus;
+
                 const td = document.createElement('td');
                 td.dataset.row    = rowIdx;
                 td.dataset.col    = colIdx;
@@ -570,13 +597,9 @@
             tbody.appendChild(tr);
         });
 
-        /* ══════════════════════════════════════
-           HÜCRE HTML'İ
-        ══════════════════════════════════════ */
         function buildCell(statusIdx) {
             const s    = STATUSES[statusIdx];
             const isNA = s.pct === null;
-
             const barWidth = isNA ? '100%' : `${s.pct}%`;
             const pctLabel = isNA ? 'N/A'  : `${s.pct}%`;
 
@@ -590,23 +613,17 @@
                 </div>`;
         }
 
-        /* ══════════════════════════════════════
-           TIKLAMA → DURUM DÖNGÜSÜ
-        ══════════════════════════════════════ */
         function attachClick(td) {
             td.querySelector('.status-cell').addEventListener('click', () => {
                 let next = (parseInt(td.dataset.status) + 1) % STATUSES.length;
                 td.dataset.status = next;
                 td.innerHTML      = buildCell(next);
                 attachClick(td);
+                saveToStorage(td.dataset.row, td.dataset.col, next);
                 updateProgress();
             });
         }
 
-        /* ══════════════════════════════════════
-           PROGRESS HESAPLAMA
-           N/A hücreleri hem pay hem payda dışında
-        ══════════════════════════════════════ */
         function updateProgress() {
             const allCells  = document.querySelectorAll('tbody td[data-col]');
             const numCols   = 6;
@@ -627,7 +644,6 @@
                 }
             });
 
-            // Genel bar
             const overallPct = eligibleCnt > 0
                 ? Math.round(totalPct / eligibleCnt * 100)
                 : 0;
@@ -638,7 +654,6 @@
             document.getElementById('eligibleCells').textContent = eligibleCnt / 100;
             document.getElementById('naCells').textContent       = naCnt;
 
-            // Sütun progress'leri
             for (let c = 0; c < numCols; c++) {
                 const colCells = document.querySelectorAll(`tbody td[data-col="${c}"]`);
                 let colTotal   = 0;
@@ -653,12 +668,11 @@
                 });
 
                 const pct = colElig > 0 ? Math.round(colTotal / colElig * 100) : 0;
-                document.getElementById(`col-${c}`).style.width    = pct + '%';
+                document.getElementById(`col-${c}`).style.width     = pct + '%';
                 document.getElementById(`col-pct-${c}`).textContent = pct + '%';
             }
         }
 
-        // İlk yükleme
         updateProgress();
     </script>
 </body>
